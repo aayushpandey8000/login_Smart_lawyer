@@ -61,11 +61,11 @@ async def get_email(client: GoogleOAuth2, token: str):
 
 def get_logged_in_user_email():
     try:
-        query_params = st.query_params
+        query_params = st.query_params()
         code = query_params.get('code')
         if code:
-            token = asyncio.run(get_access_token(client, redirect_url, code[0]))
-            user_id, user_email = asyncio.run(get_email(client, token['access_token']))
+            token = await get_access_token(client, redirect_url, code[0])
+            user_id, user_email = await get_email(client, token['access_token'])
             st.session_state.email = user_email
             return user_email
     except Exception as e:
@@ -79,8 +79,6 @@ if user_email:
 else:
     auth_url = client.get_authorization_url(redirect_url, scope=["openid", "email", "profile"])
     st.markdown(f'[Login with Google]({auth_url})')
-
-
 
 # Add your Streamlit app content here
 st.title('My Streamlit App')
