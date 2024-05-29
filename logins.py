@@ -77,8 +77,10 @@ user_email = get_logged_in_user_email()
 if user_email:
     st.write(f"Welcome, {user_email}!")
 else:
-    auth_url = client.get_authorization_url(redirect_url, scope=["openid", "email", "profile"], response_type="code")
+    auth_url = client.get_authorization_url(redirect_url, scope=["openid", "email", "profile"])
     st.markdown(f'[Login with Google]({auth_url})')
+
+
 
 # Add your Streamlit app content here
 st.title('My Streamlit App')
