@@ -1,25 +1,24 @@
 import streamlit as st
 import firebase_admin
-from firebase_admin import auth, exceptions, credentials, initialize_app
+from firebase_admin import auth, credentials, initialize_app, exceptions
 import asyncio
 from httpx_oauth.clients.google import GoogleOAuth2
 import base64
 
-# Function to set background image
+# Background image styling
 background_image = """
 <style>
 [data-testid="stAppViewContainer"] > .main {
     background-image: url("https://i.ibb.co/rwQBRdJ/magicpattern-mesh-gradient-1715094470100.png");
-    background-size: 100vw 100vh;  /* This sets the size to cover 100% of the viewport width and height */
-    background-position: center;  
+    background-size: 100vw 100vh;
+    background-position: center;
     background-repeat: no-repeat;
 }
 </style>
 """
-
 st.markdown(background_image, unsafe_allow_html=True)
 
-# Initialize Firebase app
+# Firebase configuration from secrets
 firebase_config = {
     "type": st.secrets["firebase"]["type"],
     "project_id": st.secrets["firebase"]["project_id"],
@@ -30,19 +29,20 @@ firebase_config = {
     "auth_uri": st.secrets["firebase"]["auth_uri"],
     "token_uri": st.secrets["firebase"]["token_uri"],
     "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
-    "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"]
+    "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
 }
 
-cred = credentials.Certificate(firebase_config)
+# Initialize Firebase app
 try:
     firebase_admin.get_app()
 except ValueError:
+    cred = credentials.Certificate(firebase_config)
     initialize_app(cred)
 
-# Google OAuth2 credentials
-client_id = st.secrets["oauth"]["client_id"]
-client_secret = st.secrets["oauth"]["client_secret"]
-redirect_url = st.secrets["oauth"]["redirect_url"]
+# Google OAuth2 credentials from secrets
+client_id = st.secrets["google_oauth"]["client_id"]
+client_secret = st.secrets["google_oauth"]["client_secret"]
+redirect_url = st.secrets["google_oauth"]["redirect_url"]
 
 # Initialize Google OAuth2 client
 client = GoogleOAuth2(client_id=client_id, client_secret=client_secret)
@@ -65,41 +65,21 @@ def get_logged_in_user_email():
         code = query_params.get('code')
         if code:
             token = asyncio.run(get_access_token(client, redirect_url, code[0]))
-            st.experimental_set_query_params()
-
-            if token:
-                user_id, user_email = asyncio.run(get_email(client, token['access_token']))
-                if user_email:
-                    try:
-                        user = auth.get_user_by_email(user_email)
-                    except exceptions.FirebaseError:
-                        user = auth.create_user(email=user_email)
-                    st.session_state.email = user.email
-                    return user.email
-        return None
+            user_id, user_email = asyncio.run(get_email(client, token['access_token']))
+            st.session_state.email = user_email
+            return user_email
     except Exception as e:
-        print(e)
-        return None
+        st.error(f"An error occurred: {e}")
+    return None
 
-def show_login_button():
-    authorization_url = asyncio.run(client.get_authorization_url(
-        redirect_url,
-        scope=["email", "profile"],
-        extras_params={"access_type": "offline"},
-    ))
-    st.markdown(f'<a href="{authorization_url}" target="_self">Login</a>', unsafe_allow_html=True)
+# Display login button or user email
+user_email = get_logged_in_user_email()
+if user_email:
+    st.write(f"Welcome, {user_email}!")
+else:
+    auth_url = client.get_authorization_url(redirect_url, scope=["openid", "email", "profile"], response_type="code")
+    st.markdown(f'[Login with Google]({auth_url})')
 
-def app():
-    st.title('Smart Lawyer Login Portal')
-    if not st.session_state.email:
-        get_logged_in_user_email()
-        if not st.session_state.email:
-            show_login_button()
-
-    if st.session_state.email:
-        st.write(f"Logged in as: {st.session_state.email}")
-        if st.button("Logout", type="primary", key="logout"):
-            st.session_state.email = ''
-            st.experimental_rerun()
-
-app()
+# Add your Streamlit app content here
+st.title('My Streamlit App')
+st.write('Your app content goes here.')
