@@ -5,28 +5,19 @@ import asyncio
 from httpx_oauth.clients.google import GoogleOAuth2
 import base64
 
-# Function to get base64 representation of a binary file
-@st.cache_data()
-def get_base64_of_bin_file(bin_file, mutable=True):
-    with open(bin_file, 'rb') as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
 # Function to set background image
-def set_background(png_file):
-    bin_str = get_base64_of_bin_file(png_file)
-    page_bg_img = f'''
-    <style>
-    .stApp {{
-    background-image: url("data:image/jpeg;base64,{bin_str}");
-    background-size: cover;
-    }}
-    </style>
-    '''
-    st.markdown(page_bg_img, unsafe_allow_html=True)
+background_image = """
+<style>
+[data-testid="stAppViewContainer"] > .main {
+    background-image: url("https://i.ibb.co/rwQBRdJ/magicpattern-mesh-gradient-1715094470100.png");
+    background-size: 100vw 100vh;  /* This sets the size to cover 100% of the viewport width and height */
+    background-position: center;  
+    background-repeat: no-repeat;
+}
+</style>
+"""
 
-# Set background image
-set_background("D:/py_llm/law/magicpattern-mesh-gradient-1715052764545.png")
+st.markdown(background_image, unsafe_allow_html=True)
 
 # Initialize Firebase app
 firebase_config = {
