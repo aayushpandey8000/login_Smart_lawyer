@@ -61,7 +61,7 @@ async def get_email(client: GoogleOAuth2, token: str):
 
 def get_logged_in_user_email():
     try:
-        query_params = st.query_params()
+        query_params = st.experimental_get_query_params()
         code = query_params.get('code')
         if code:
             token = asyncio.run(get_access_token(client, redirect_url, code[0]))
