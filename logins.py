@@ -1,58 +1,66 @@
 import streamlit as st
 import firebase_admin
-from firebase_admin import auth, credentials, initialize_app
+from firebase_admin import auth, exceptions, credentials, initialize_app
 import asyncio
 from httpx_oauth.clients.google import GoogleOAuth2
+import base64
 
-# Set the background image
-background_image = """
-<style>
-[data-testid="stAppViewContainer"] > .main {
-    background-image: url("https://i.ibb.co/rwQBRdJ/magicpattern-mesh-gradient-1715094470100.png");
-    background-size: 100vw 100vh;  # This sets the size to cover 100% of the viewport width and height
-    background-position: center;  
-    background-repeat: no-repeat;
-}
-</style>
-"""
+# Function to get base64 representation of a binary file
+@st.cache_data()
+def get_base64_of_bin_file(bin_file, mutable=True):
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
 
-st.markdown(background_image, unsafe_allow_html=True)
+# Function to set background image
+def set_background(png_file):
+    bin_str = get_base64_of_bin_file(png_file)
+    page_bg_img = f'''
+    <style>
+    .stApp {{
+    background-image: url("data:image/jpeg;base64,{bin_str}");
+    background-size: cover;
+    }}
+    </style>
+    '''
+    st.markdown(page_bg_img, unsafe_allow_html=True)
 
-# Custom input styling
-input_style = """
-<style>
-textarea {
-    background-color: white;
-    color: #FFFFFF; /* Change to the desired text color */
-    border-radius: 5px; /* Optional: Adjust border radius for rounded corners */
-}
-div[data-baseweb="base-input"] {
-    background-color: transparent !important;
-}
-[data-testid="stAppViewContainer"] {
-    background-color: transparent !important;
-}
-</style>
-"""
-
-st.markdown(input_style, unsafe_allow_html=True)
+# Set background image
+set_background("D:/py_llm/law/magicpattern-mesh-gradient-1715052764545.png")
 
 # Initialize Firebase app
-if not firebase_admin._apps:
-    cred = credentials.Certificate(st.secrets["firebase"])
+firebase_config = {
+    "type": st.secrets["firebase"]["type"],
+    "project_id": st.secrets["firebase"]["project_id"],
+    "private_key_id": st.secrets["firebase"]["private_key_id"],
+    "private_key": st.secrets["firebase"]["private_key"],
+    "client_email": st.secrets["firebase"]["client_email"],
+    "client_id": st.secrets["firebase"]["client_id"],
+    "auth_uri": st.secrets["firebase"]["auth_uri"],
+    "token_uri": st.secrets["firebase"]["token_uri"],
+    "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
+    "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"]
+}
+
+cred = credentials.Certificate(firebase_config)
+try:
+    firebase_admin.get_app()
+except ValueError:
     initialize_app(cred)
 
 # Google OAuth2 credentials
-client_id = st.secrets["google"]["client_id"]
-client_secret = st.secrets["google"]["client_secret"]
-redirect_url = "https://smart-lawyer-007.streamlit.app/"
+client_id = st.secrets["oauth"]["client_id"]
+client_secret = st.secrets["oauth"]["client_secret"]
+redirect_url = st.secrets["oauth"]["redirect_url"]
 
 # Initialize Google OAuth2 client
 client = GoogleOAuth2(client_id=client_id, client_secret=client_secret)
 
-if "email" not in st.session_state:
+# Initialize session state email
+if 'email' not in st.session_state:
     st.session_state.email = ''
 
+# Async functions to handle OAuth2
 async def get_access_token(client: GoogleOAuth2, redirect_url: str, code: str):
     return await client.get_access_token(code, redirect_url)
 
@@ -73,13 +81,13 @@ def get_logged_in_user_email():
                 if user_email:
                     try:
                         user = auth.get_user_by_email(user_email)
-                    except firebase_admin._auth_utils.UserNotFoundError:
+                    except exceptions.FirebaseError:
                         user = auth.create_user(email=user_email)
                     st.session_state.email = user.email
                     return user.email
         return None
     except Exception as e:
-        st.error(f"Error during login: {str(e)}")
+        print(e)
         return None
 
 def show_login_button():
@@ -89,7 +97,6 @@ def show_login_button():
         extras_params={"access_type": "offline"},
     ))
     st.markdown(f'<a href="{authorization_url}" target="_self">Login</a>', unsafe_allow_html=True)
-    get_logged_in_user_email()
 
 def app():
     st.title('Smart Lawyer Login Portal')
@@ -97,13 +104,11 @@ def app():
         get_logged_in_user_email()
         if not st.session_state.email:
             show_login_button()
-    else:
-        st.write(f"Welcome, {st.session_state.email}!")
-        # Your main app content goes here
-        # For example, provide access to other features only if logged in
-        if st.button("Logout"):
+
+    if st.session_state.email:
+        st.write(f"Logged in as: {st.session_state.email}")
+        if st.button("Logout", type="primary", key="logout"):
             st.session_state.email = ''
             st.experimental_rerun()
 
-# Run the app
 app()
