@@ -1,5 +1,5 @@
 openai==0.28
 streamlit
 firebase-admin
-httpx-oauth[client]
 pandas
+httpx-oauth==0.3.5
